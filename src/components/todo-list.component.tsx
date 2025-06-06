@@ -1,6 +1,6 @@
 // src/components/TodoList.tsx
 
-import React from 'react';
+import React, { useEffect } from 'react';
 
 import { Todo } from '../types/todo-type';
 
@@ -28,15 +28,26 @@ interface FetchTodosParams {
  */
 // remove eslint-disable-next-line @typescript-eslint/no-unused-vars when you use the parameters in the function
 export const fetchTodos = async ({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setTodos,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setFilteredTodos,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setLoading,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   setError,
-}: FetchTodosParams): Promise<void> => {};
+}: FetchTodosParams): Promise<void> => {
+  try {
+    setLoading(true);
+    const response = await fetch('https://jsonplaceholder.typicode.com/todos');
+    if (!response.ok) {
+      throw new Error('HTTP error! Status: 404');
+    }
+    const data = await response.json();
+    setTodos(data);
+    setFilteredTodos(data);
+  } catch (error) {
+    setError(error instanceof Error ? error.message : 'error loading todos');
+  } finally {
+    setLoading(false);
+  }
+};
 /**
  * TodoList component fetches todos from the API and displays them in a list.
  * It also provides filter buttons to filter the todos based on their completion status.
@@ -45,8 +56,19 @@ export const fetchTodos = async ({
  */
 
 // remove the following line when you use onSelectTodo in the component
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const TodoList: React.FC<TodoListProps> = ({ onSelectTodo }) => {
+  const [todos, setTodos] = React.useState<Todo[]>([]);
+  const [filteredTodos, setFilteredTodos] = React.useState<Todo[]>([]);
+  const [loading, setLoading] = React.useState<boolean>(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await fetchTodos({ setTodos, setFilteredTodos, setLoading, setError });
+    };
+    fetchData();
+  }, []);
+
   return (
     <div className="todo-list">
       <h2>Todo List</h2>
@@ -59,14 +81,52 @@ export const TodoList: React.FC<TodoListProps> = ({ onSelectTodo }) => {
         <code> .todo-button.completed</code> CSS style in App.css
       </p>
       <div className="filter-buttons">
-        <button data-testid="filter-all">All</button>
-        <button data-testid="filter-open">Open</button>
-        <button data-testid="filter-completed">Completed</button>
+        <button
+          data-testid="filter-all"
+          onClick={(target) => {
+            setFilteredTodos(todos);
+            target.currentTarget.classList.toggle('active');
+          }}
+        >
+          All
+        </button>
+        <button
+          data-testid="filter-open"
+          onClick={(target) => {
+            setFilteredTodos(todos.filter((todo) => !todo.completed));
+            target.currentTarget.classList.toggle('active');
+          }}
+        >
+          Open
+        </button>
+        <button
+          data-testid="filter-completed"
+          onClick={(target) => {
+            setFilteredTodos(todos.filter((todo) => todo.completed));
+            target.currentTarget.classList.toggle('active');
+          }}
+        >
+          Completed
+        </button>
       </div>
-      <p>
-        Show a list of todo&apos;s here. Make it so if you click a todo it calls the event
-        handler onSelectTodo with the todo id to show the individual todo
-      </p>
+      <div>
+        {loading && <span>loading todos</span>}
+        {error && <span>Error: error loading todos</span>}
+        <ul>
+          {filteredTodos.map((todo) => (
+            <li key={todo.id}>
+              <button
+                onClick={() => onSelectTodo(todo.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onSelectTodo(todo.id);
+                }}
+              >
+                {todo.title}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 };
